@@ -19,16 +19,17 @@ class Net::HTTPGenericRequest
 
     if URI === uri_or_path then
       raise ArgumentError, "not an HTTP URI" unless URI::HTTP === uri_or_path
-      hostname = uri_or_path.hostname
+      hostname = uri_or_path.host
       raise ArgumentError, "no host component for URI" unless (hostname && hostname.length > 0)
       @uri = uri_or_path.dup
-      host = @uri.hostname.dup
-      host << ":" << @uri.port.to_s if @uri.port != @uri.default_port
+      @host = @uri.host.dup
+      @port = @uri.port == @uri.default_port ? nil :  @uri.port
       @path = uri_or_path.request_uri
       raise ArgumentError, "no HTTP request path given" unless @path
     else
       @uri = nil
-      host = nil
+      @host = nil
+      @port = nil
       raise ArgumentError, "no HTTP request path given" unless uri_or_path
       raise ArgumentError, "HTTP request path is empty" if uri_or_path.empty?
       @path = uri_or_path.dup
@@ -51,7 +52,7 @@ class Net::HTTPGenericRequest
     initialize_http_header initheader
     self['Accept'] ||= '*/*'
     self['User-Agent'] ||= 'Ruby'
-    self['Host'] ||= host if host
+    self['Host'] ||= @port ? "#{@host}:#{@port}" : @host if @host
     @body = nil
     @body_stream = nil
     @body_data = nil
@@ -245,7 +246,7 @@ class Net::HTTPGenericRequest
     end
 
     if host = self['host']
-      host.sub!(/:.*/m, '')
+      host = URI.parse("#{scheme}://#{host}").host # Remove a port component from the existing Host header
     elsif host = @uri.host
     else
      host = addr
